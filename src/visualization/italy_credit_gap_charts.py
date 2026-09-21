@@ -59,6 +59,17 @@ def load_agg(root):
     return agg
 
 
+def load_export_share_ratio(root):
+    """Export share as the mean of each YEAR's own ratio, not the ratio of
+    averaged totals -- matches export_share_timeseries.py and hero_pictogram.py."""
+    ioc = pd.read_csv(root / "data" / "processed" / "ioc_all_countries.csv")
+    recent = ioc[ioc.crop_year_start >= 2015].copy()
+    recent = recent[~recent.country.isin(["World", "EU", "Other non-producing countries", "Other producing countries"])]
+    recent = recent[recent.production_tonnes > 0]
+    recent["ratio"] = recent.exports_tonnes / recent.production_tonnes * 100
+    return recent.groupby("country")["ratio"].mean()
+
+
 def chart_scatter(agg, out_dir):
     sub = agg[(agg.production > 1000) & (agg.exports > 0)].copy()
     logp = np.log(sub.production)
@@ -104,13 +115,14 @@ def chart_scatter(agg, out_dir):
     plt.close(fig)
 
 
-def chart_export_share(agg, out_dir):
+def chart_export_share(agg, out_dir, ratio_series):
     """Export share of production -- the cleanest single proof of the thesis.
     Italy and Tunisia export the overwhelming majority of what they produce;
     Greece exports almost none of a comparable harvest."""
     sub = agg.copy()
-    sub["export_share"] = sub.exports / sub.production * 100
+    sub["export_share"] = ratio_series.reindex(sub.index)
     sub = sub[sub.production > 100000]  # keep it to major producers only
+    sub = sub.dropna(subset=["export_share"])
     sub = sub.sort_values("export_share", ascending=True)
 
     colors = [HIGHLIGHT_COLORS.get(c, NEUTRAL) for c in sub.index]
@@ -127,6 +139,14 @@ def chart_export_share(agg, out_dir):
     fig.tight_layout()
     fig.savefig(out_dir / "export_share_bar.png", dpi=200)
     plt.close(fig)
+    print(
+        "export_share_bar: "
+        + ", ".join(
+            f"{country} {sub.loc[country, 'export_share']:.1f}%"
+            for country in ("Tunisia", "Italy", "Greece")
+            if country in sub.index
+        )
+    )
 
 
 def chart_rank_bump(agg, out_dir):
@@ -186,11 +206,12 @@ def chart_supply_gap(agg, out_dir):
 def build():
     root = find_project_root()
     agg = load_agg(root)
+    ratio_series = load_export_share_ratio(root)
     out_dir = root / "outputs" / "figures" / "combined"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     chart_scatter(agg, out_dir)
-    chart_export_share(agg, out_dir)
+    chart_export_share(agg, out_dir, ratio_series)
     chart_rank_bump(agg, out_dir)
     chart_supply_gap(agg, out_dir)
     print(f"Wrote 4 charts to {out_dir}")
