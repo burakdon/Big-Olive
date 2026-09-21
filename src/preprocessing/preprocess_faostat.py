@@ -23,7 +23,10 @@ def preprocess_faostat():
     processed_dir.mkdir(parents=True, exist_ok=True)
 
     # First, we load the raw FAOSTAT dataset
-    df = pd.read_csv(raw_path)
+    df = pd.read_csv(
+        raw_path,
+        dtype={"m49 code": "string"}
+    )
 
     # Confirm that the dataset contains only olives
     if set(df["Item"].dropna().unique()) != {"Olives"}:
@@ -33,6 +36,8 @@ def preprocess_faostat():
 
     # Keep only the variables needed for the analysis
     columns = [
+        "faostat",
+        "m49 code",
         "Country",
         "Year",
         "Production (tonnes)",
@@ -47,6 +52,8 @@ def preprocess_faostat():
 
     # Rename the columns to make them easier to use
     clean_all = clean_all.rename(columns={
+        "faostat": "faostat_country_code",
+        "m49 code": "m49_code",
         "Country": "country",
         "Year": "year",
         "Production (tonnes)": "production_tonnes",
@@ -56,6 +63,9 @@ def preprocess_faostat():
         "Yield (kg/ha)": "yield_kg_ha",
         "Yield (kg/ha) flag": "yield_flag",
     })
+
+    # Keep M49 codes in their standard three-digit format
+    clean_all["m49_code"] = clean_all["m49_code"].str.zfill(3)
 
     # Sort the data by country and year
     clean_all = clean_all.sort_values(
@@ -85,7 +95,9 @@ def preprocess_faostat():
 
     # Confirm that there is one observation per country and year
     if clean_target.duplicated(subset=["country", "year"]).any():
-        raise ValueError("Duplicated country-year observations were found.")
+        raise ValueError(
+            "Duplicated country-year observations were found."
+        )
 
     # Check that FAOSTAT yield matches production divided by harvested area
     valid_yield = clean_target.dropna(
