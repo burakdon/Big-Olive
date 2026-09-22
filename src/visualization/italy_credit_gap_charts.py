@@ -60,8 +60,11 @@ def load_agg(root):
 
 
 def load_export_share_ratio(root):
-    """Export share as the mean of each YEAR's own ratio, not the ratio of
-    averaged totals -- matches export_share_timeseries.py and hero_pictogram.py."""
+    """Export share computed as the mean of each YEAR's own ratio, not the
+    ratio of averaged totals. This matches the methodology used in
+    export_share_timeseries.py and is more robust to which individual years
+    happen to carry more volume (relevant given alternate-bearing swings) --
+    it's the number that should be quoted everywhere in the deck."""
     ioc = pd.read_csv(root / "data" / "processed" / "ioc_all_countries.csv")
     recent = ioc[ioc.crop_year_start >= 2015].copy()
     recent = recent[~recent.country.isin(["World", "EU", "Other non-producing countries", "Other producing countries"])]
@@ -117,12 +120,10 @@ def chart_scatter(agg, out_dir):
 
 def chart_export_share(agg, out_dir, ratio_series):
     """Export share of production -- the cleanest single proof of the thesis.
-    Italy and Tunisia export the overwhelming majority of what they produce;
-    Greece exports almost none of a comparable harvest."""
-    sub = agg.copy()
-    sub["export_share"] = ratio_series.reindex(sub.index)
+    Uses the mean-of-yearly-ratios (ratio_series), consistent with
+    export_share_timeseries.py, not the ratio of averaged totals."""
+    sub = agg[["production"]].join(ratio_series.rename("export_share"), how="inner")
     sub = sub[sub.production > 100000]  # keep it to major producers only
-    sub = sub.dropna(subset=["export_share"])
     sub = sub.sort_values("export_share", ascending=True)
 
     colors = [HIGHLIGHT_COLORS.get(c, NEUTRAL) for c in sub.index]
@@ -139,14 +140,6 @@ def chart_export_share(agg, out_dir, ratio_series):
     fig.tight_layout()
     fig.savefig(out_dir / "export_share_bar.png", dpi=200)
     plt.close(fig)
-    print(
-        "export_share_bar: "
-        + ", ".join(
-            f"{country} {sub.loc[country, 'export_share']:.1f}%"
-            for country in ("Tunisia", "Italy", "Greece")
-            if country in sub.index
-        )
-    )
 
 
 def chart_rank_bump(agg, out_dir):
@@ -154,7 +147,6 @@ def chart_rank_bump(agg, out_dir):
     sub["prod_rank"] = sub["production"].rank(ascending=False, method="min")
     sub["exp_rank"] = sub["exports"].rank(ascending=False, method="min")
 
-    # keep countries in the top 12 by either rank, for legibility
     keep = sub[(sub.prod_rank <= 12) | (sub.exp_rank <= 12)].copy()
 
     fig, ax = plt.subplots(figsize=(10, 9))
