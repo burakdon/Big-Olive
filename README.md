@@ -1,13 +1,13 @@
 # Big-Olive
 
+Our project showcasing the marvelous journey of olive juice. aka olive oil.
+
 **Module Project 1: Data Storytelling**  
 Alberto Gomez Soteres & Burak Donbekci
 
-Big Olive explores the relationship between **olive production and olive oil trade**.
+We look at olive production and olive oil trade together. FAOSTAT covers the trees (fruit, area, yield). The International Olive Council covers the oil market (production, consumption, exports, imports). UN Comtrade is used only for Italy's bilateral flows. Spain and Türkiye are the main comparison; Italy is in the picture because the bottle often says Italy even when the harvest does not.
 
-Using public data from FAOSTAT, the International Olive Council, and UN Comtrade, we compare the agricultural and market roles of major Mediterranean countries, with particular attention to Spain, Türkiye, and Italy.
-
-Our main question is simple:
+The question we keep coming back to:
 
 > Does being strongly associated with olive oil also mean being the country that grows the most olives?
 
@@ -15,11 +15,13 @@ Our main question is simple:
 
 ## Key Findings
 
-- **Spain remains the largest olive producer** in the FAOSTAT data, reaching about 8.31 million tonnes in 2024.
-- **Türkiye has expanded strongly**, through a combination of larger harvested area and higher yield.
-- **Italy follows a much flatter long-term production path** than Spain and Türkiye.
-- Agricultural production and international trade do not tell the same story: a country can play an important role in the olive oil market without having the same domestic production trajectory.
-- Spain and Türkiye also show strong year-to-year variation in olive production, especially Türkiye.
+- **Spain is still the largest olive producer** in the FAOSTAT data, about 8.31 million tonnes in 2024.
+- **Türkiye has grown a lot**, from both more harvested area and higher yield.
+- **Italy is flatter** over the long run than Spain or Türkiye.
+- Growing olives and selling oil are different stories. A country can matter in the oil market without matching that with domestic fruit production.
+- Spain and Türkiye both swing hard year to year. Türkiye more so.
+
+On the oil-market side (IOC, 2015–2024, mean of each year's export/production ratio): Tunisia exports about 92% of what it produces, Italy about 75%, Greece about 8.5%. Spain and Türkiye sit in the middle, around a quarter to a third.
 
 ---
 
@@ -27,38 +29,51 @@ Our main question is simple:
 
 ### FAOSTAT Olives
 
-FAOSTAT provides the agricultural side of the project.
+The agricultural side of the project.
 
 - **What it includes:** olive production, harvested area, and yield by country and year
-- **Coverage:** 1961-2024
-- **Item:** Olives, item code 260
+- **Coverage:** 1961–2024
+- **Item:** Olives, item code 260 (fruit, not oil)
 - **Source:** [FAOSTAT Crops and Livestock Products](https://www.fao.org/faostat/en/#data/QCL)
 - **Raw file:** `data/raw/faostat_olives.csv`
+- **Processed:** `data/processed/faostat_all_countries.csv` (every country), `data/processed/faostat_clean.csv` (Spain and Türkiye)
 
-> FAOSTAT measures olive fruit, not olive oil.
+Spain's area and yield are missing for 1961–1979 (`flag = M`). Those cells are left missing.
 
 ### International Olive Council
 
-The International Olive Council provides the olive oil market side of the project.
+The olive oil market side.
 
-- **What it includes:** production, consumption, imports, and exports
-- **Coverage:** 1990/91-2024/25 crop years
-- **Source:** [International Olive Council Statistics](https://www.internationaloliveoil.org/what-we-do/statistics/)
-- **Raw files:**
-  - `data/raw/ioc_olive_oil.csv`
-  - `data/raw/ioc_world_balances.xls`
+- **What it includes:** production, consumption, imports, and exports by crop year (October–September)
+- **Coverage:** 1990/91–2024/25
+- **Units:** original files are thousand tonnes; processed files are tonnes
+- **Source:** [IOC Statistics](https://www.internationaloliveoil.org/what-we-do/statistics/)
+- **Raw files:** `data/raw/ioc_olive_oil.csv`, `data/raw/ioc_world_balances.xls`
+- **Processed:** `data/processed/ioc_all_countries.csv`, `data/processed/ioc_clean.csv` (Spain and Türkiye)
 
-The dashboard data is used as the main country-level source. The world workbook is used to supplement known gaps and world totals.
+The dashboard is the country-level source of truth. The world workbook fills known gaps only (Türkiye 1998/99–2007/08, Spain production in 2007/08, and world totals). Table olives are dropped. `EU` includes Spain, so Spain + EU double-counts. 2024/25 is still provisional.
 
 ### UN Comtrade
 
-UN Comtrade is used to examine bilateral olive oil trade flows, including Italy's major suppliers and export destinations.
+Used for Italy's olive oil in and out: who ships to Italy, and where Italy ships. This is the input to the Sankey, not a third full dataset.
 
-Data collection script:
+- **Script:** `src/data_collection/fetch_comtrade_flows.py`
+- **Output:** `data/raw/comtrade_olive_oil_flows.csv` (not committed; regenerate locally)
 
-```text
-src/data_collection/fetch_comtrade_flows.py
+Setup (once):
+
+1. Free account at [comtradedeveloper.un.org](https://comtradedeveloper.un.org)
+2. Subscribe to **comtrade - v1** and copy the API key
+3. Install the client and set the key in the environment (do not put the key in the repo):
+
+```bash
+pip install comtradeapicall plotly
+export COMTRADE_API_KEY="your-key-here"
+python src/data_collection/fetch_comtrade_flows.py
+python src/visualization/italy_flow_sankey.py
 ```
+
+That writes `outputs/figures/combined/italy_flow_sankey.html`. Open it in a browser.
 
 ---
 
@@ -81,70 +96,68 @@ Big-Olive/
 │   └── visualization/
 ├── outputs/
 │   └── figures/
+│       ├── faostat/
+│       ├── ioc/
+│       └── combined/
 ├── requirements.txt
 └── README.md
 ```
+
+Notebooks can be run from `notebooks/` or from the project root. Paths work either way.
 
 ---
 
 ## Reproduce the Analysis
 
-Clone the repository:
-
 ```bash
 git clone https://github.com/burakdon/Big-Olive.git
 cd Big-Olive
-```
-
-Create and activate a virtual environment:
-
-```bash
 python -m venv .venv
 source .venv/bin/activate
-```
-
-Install dependencies:
-
-```bash
 pip install -r requirements.txt
 ```
 
-Run preprocessing:
+`requirements.txt` covers pandas and the Excel readers. Figures also need:
+
+```bash
+pip install matplotlib plotly pillow
+```
+
+Cleaning:
 
 ```bash
 python src/preprocessing/preprocess_faostat.py
 python src/preprocessing/preprocess_ioc.py
 ```
 
-Run FAOSTAT feature engineering:
+FAOSTAT features and Alberto's FAOSTAT charts:
 
 ```bash
 python src/features/engineer_faostat_features.py
-```
-
-Generate the FAOSTAT visualizations:
-
-```bash
 python src/visualization/plot_faostat.py
 ```
 
-Processed datasets are saved in:
+Other figures (already saved under `outputs/figures/`; rerun only if you want to rebuild):
 
-```text
-data/processed/
+```bash
+python src/visualization/growth_and_trade_charts.py
+python src/visualization/italy_credit_gap_charts.py
+python src/visualization/export_share_timeseries.py
+python src/visualization/production_rank_slope.py
+python src/visualization/bubble_race_faostat.py
+python src/visualization/bubble_race_gif.py
+python src/visualization/hero_pictogram.py
 ```
 
-Final figures are saved in:
+Processed tables go to `data/processed/`. Figures go to `outputs/figures/`.
 
-```text
-outputs/figures/
-```
+Then open the notebooks listed above.
 
 ---
 
 ## Feature Engineering
 
-The FAOSTAT workflow includes:
+The FAOSTAT workflow adds:
 
 - annual production growth
 - five-year production averages
@@ -153,36 +166,34 @@ The FAOSTAT workflow includes:
 - production growth decomposition
 - production direction
 - year-to-year alternation
-- production share within a consistent major-producer comparison group
+- production share within a consistent major-producer group
 
-These features are descriptive and are not interpreted as causal relationships.
+These are descriptive. They are not causal claims.
+
+Export shares in the combined charts use the **mean of each year's own ratio** (2015–2024), not the ratio of the period averages. That lives in `load_export_share_ratio` in `src/visualization/italy_credit_gap_charts.py`.
 
 ---
 
 ## Methodological Notes
 
-The three main data sources describe different parts of the olive oil system:
+The three sources are not the same clock, and they are not the same product:
 
-- **FAOSTAT** reports olive fruit by calendar year
-- **IOC** reports olive oil by crop year
-- **UN Comtrade** reports international trade flows
+- **FAOSTAT** — olive fruit, calendar year
+- **IOC** — olive oil, crop year (October–September)
+- **UN Comtrade** — reported trade flows (HS 150910 / 150990)
 
-Because these datasets use different definitions and time periods, they are not treated as perfectly synchronized observations.
-
-Trade data also represents aggregate flows between countries. It does not trace individual batches of olive oil or directly identify where branding or retail value is captured.
+We do not force them onto one timeline. Trade totals also do not tell you who bottled the oil or whose name is on the label.
 
 ---
 
 ## Collaboration
 
-The project was developed using GitHub branches and pull requests.
-
-Each team member worked on separate parts of the analysis and reviewed changes before integration into the shared development branch.
+We split the work by dataset, reviewed each other on pull requests, and merged into `dev`.
 
 ---
 
 ## Course
 
-**AIPI 510 - Sourcing Data for Analytics**  
+**AIPI 510 — Sourcing Data for Analytics**  
 Duke University  
 Fall 2026
