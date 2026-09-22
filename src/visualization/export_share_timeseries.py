@@ -1,5 +1,4 @@
-"""Is the Italy/Tunisia/Greece export-share gap persistent or recent?
-Line chart, export share of production over time, 1990-2024.
+"""Export share of production over time, 1990-2024.
 """
 
 from pathlib import Path
@@ -14,6 +13,7 @@ COLORS = {
     "Tunisia": "#9c6644",
     "Greece": "#1d3557",
     "Spain": "#c0392b",
+    "Türkiye": "#e67e22",
 }
 
 
